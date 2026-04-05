@@ -178,7 +178,7 @@ frontend/
 
 ## 📮 Postman Collection
 
-
+https://interstellar-meteor-155735.postman.co/workspace/ecommerce~e6b6d99c-a074-4e32-a0a6-0b6c9b1d530c/collection/17484047-a47969d3-1ee0-45ab-83b2-75143f42ab37?action=share&source=copy-link&creator=17484047
 
 ---
 
