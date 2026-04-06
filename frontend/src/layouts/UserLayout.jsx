@@ -1,25 +1,91 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+
+const navStyle = {
+  position: 'sticky',
+  top: 0,
+  zIndex: 50,
+  backgroundColor: '#ffffff',
+  borderBottom: '1px solid #e5e7eb',
+  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+  padding: '0 20px', // Reduced padding to use more width, but keep text away from absolute edge
+  height: '64px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  width: '100%' // Ensure nav takes full width
+};
+
+const linkStyle = {
+  color: '#4b5563',
+  textDecoration: 'none',
+  fontSize: '0.95rem',
+  fontWeight: '500',
+  padding: '8px 12px',
+  borderRadius: '6px',
+  transition: 'all 0.2s'
+};
+
+const activeLinkStyle = {
+  ...linkStyle,
+  color: '#4f46e5',
+  backgroundColor: '#eef2ff'
+};
+
+const logoutBtnStyle = {
+  padding: '8px 16px',
+  backgroundColor: '#fee2e2',
+  color: '#dc2626',
+  border: 'none',
+  borderRadius: '6px',
+  fontWeight: '600',
+  cursor: 'pointer',
+  fontSize: '0.9rem'
+};
 
 export default function UserLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
+    if (window.confirm('Are you sure you want to logout?')) {
+      localStorage.clear();
+      navigate('/user/login');
+    }
   };
 
+  const isActive = (path) => location.pathname === path;
+
   return (
-    <div>
-      <nav style={{ padding: '10px 20px', background: '#333', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: '15px' }}>
-          <Link to="/" style={{ color: 'white', textDecoration: 'none' }}>Events</Link>
-          <Link to="/bookings" style={{ color: 'white', textDecoration: 'none' }}>My Bookings</Link>
-          <Link to="/wallet" style={{ color: 'white', textDecoration: 'none' }}>Wallet</Link>
+    <div style={{ backgroundColor: '#f9fafb', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <nav style={navStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#4f46e5', letterSpacing: '-0.025em' }}>
+            TicketPro
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Link to="/" style={isActive('/') ? activeLinkStyle : linkStyle}>
+              Events
+            </Link>
+            <Link to="/bookings" style={isActive('/bookings') ? activeLinkStyle : linkStyle}>
+              My Bookings
+            </Link>
+            <Link to="/wallet" style={isActive('/wallet') ? activeLinkStyle : linkStyle}>
+              Wallet
+            </Link>
+          </div>
         </div>
-        <button onClick={handleLogout} style={{ padding: '5px 10px' }}>Logout</button>
+        <button onClick={handleLogout} style={logoutBtnStyle}>
+          Logout
+        </button>
       </nav>
       
-      {/* THIS IS REQUIRED. It renders the child route component (e.g., EventList) */}
-      <main style={{ padding: '20px' }}>
+      {/* FIX: Removed maxWidth, margin: '0 auto', and reduced padding */}
+      <main style={{ 
+        padding: '32px 20px', 
+        width: '100%', 
+        boxSizing: 'border-box',
+        flex: 1 
+      }}>
         <Outlet />
       </main>
     </div>

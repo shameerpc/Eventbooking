@@ -15,12 +15,34 @@ export default function UserLogin() {
     setLoading(true);
 
     try {
-      const data = await login(email, password, 'user');
-      localStorage.setItem('accessToken', data.token || data.accessToken);
+      const response = await login(email, password, 'user');
+      
+      // DEBUGGING: Open your browser console (F12) to see the exact structure
+      console.log('Login API Response:', response);
+
+      // ROBUST FIX: Check multiple possible locations for the token
+      const token = response?.token || 
+                    response?.accessToken || 
+                    response?.data?.token || 
+                    response?.data?.accessToken;
+
+      if (!token) {
+        // If you still see this error, look at the console log above 
+        // to see exactly what keys are available in 'response'
+        throw new Error('Login successful, but no authentication token found in response.');
+      }
+
+      localStorage.setItem('accessToken', token);
       localStorage.setItem('userRole', 'user');
+      
+      // Navigate to the user dashboard/home
       navigate('/');
+      
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      // Handle both API errors and the custom error above
+      // We check if it's a string (our custom throw) or an object (axios error)
+      const errorMsg = err?.response?.data?.message || err?.message || 'Login failed. Please check your credentials.';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -80,7 +102,7 @@ export default function UserLogin() {
       borderRadius: '6px',
       fontSize: '14px',
       marginBottom: '20px',
-      border: '1px solid #feb2b2' // FIXED: Removed extra quote
+      border: '1px solid #feb2b2'
     },
     footer: { marginTop: '24px', fontSize: '14px', color: '#718096' },
     link: { color: '#3182ce', textDecoration: 'none', fontWeight: '600', marginLeft: '5px' }

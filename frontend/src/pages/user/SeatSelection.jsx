@@ -1,38 +1,25 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-// Import the specific functions from the API file we just fixed
 import { getEventSeats, reserveSeats } from '../../lib/seat.api';
 
 export default function SeatSelection() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  
   const [seats, setSeats] = useState([]);
   const [selected, setSelected] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reserving, setReserving] = useState(false);
-  
-  // Use a ref to track if this is the initial load to prevent UI flashing during polls
   const isInitialLoad = useRef(true);
 
-  // Fetch seats for the event
   const fetchSeats = useCallback(async () => {
-    // Only show full-screen loading spinner on the very first fetch
-    if (isInitialLoad.current) {
-      setLoading(true);
-    }
-    
+    if (isInitialLoad.current) setLoading(true);
     try {
       const res = await getEventSeats(eventId);
       setSeats(res.data);
-      setError(''); // Clear previous errors on successful fetch
+      setError('');
     } catch (err) {
-      // Only set error state if it's the initial load, otherwise errors might be too noisy
-      if (isInitialLoad.current) {
-        setError('Failed to load seats');
-      }
-      console.error("Polling fetch error:", err);
+      if (isInitialLoad.current) setError('Failed to load seats');
     } finally {
       if (isInitialLoad.current) {
         setLoading(false);
@@ -43,7 +30,6 @@ export default function SeatSelection() {
 
   useEffect(() => {
     fetchSeats();
-    // Poll every 15s to keep sync with other users
     const interval = setInterval(fetchSeats, 15000);
     return () => clearInterval(interval);
   }, [fetchSeats]);
@@ -59,106 +45,102 @@ export default function SeatSelection() {
 
   const handleReserve = async () => {
     if (selected.length === 0) return;
-    
     setReserving(true);
     setError('');
-
     try {
       const seatIds = selected.map((s) => s._id);
-      
-      // Use the imported API function
       await reserveSeats(eventId, seatIds);
-      
-      // Store data for the confirmation page
       localStorage.setItem('pendingSeatIds', JSON.stringify(seatIds));
       localStorage.setItem('pendingEventId', eventId);
-      
       navigate('/booking/confirm');
     } catch (err) {
-      // Handle specific backend errors or generic failures
-      const msg = err.response?.data?.message || 'Reservation failed. Please try again.';
-      setError(msg);
-      
-      // Optional: Refresh seats immediately if reservation failed, 
-      // as availability might have changed
-      fetchSeats(); 
+      setError(err.response?.data?.message || 'Reservation failed.');
+      fetchSeats();
     } finally {
       setReserving(false);
     }
   };
 
-  if (loading) return <p style={{ textAlign: 'center', marginTop: '20px' }}>Loading seats...</p>;
+  const seatStyle = (status, isSelected) => ({
+    height: '40px',
+    width: '40px',
+    borderRadius: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    cursor: status === 'AVAILABLE' ? 'pointer' : 'not-allowed',
+    backgroundColor: isSelected ? '#4f46e5' : 
+                   status === 'BOOKED' ? '#f3f4f6' : 
+                   status === 'RESERVED' ? '#fef3c7' : '#ffffff',
+    color: isSelected ? '#ffffff' : 
+           status === 'BOOKED' ? '#d1d5db' : 
+           status === 'RESERVED' ? '#d97706' : '#374151',
+    border: isSelected ? '2px solid #4f46e5' : '1px solid #e5e7eb',
+    transition: 'all 0.2s'
+  });
+
+  if (loading) return <div style={{textAlign: 'center', marginTop: '50px'}}>Loading Map...</div>;
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <h2>Select Seats</h2>
-
-      {/* Legend */}
-      <div style={{ marginBottom: '15px', display: 'flex', gap: '15px', fontSize: '0.9rem' }}>
-        <span><span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#1dd1a1', marginRight: '5px' }}></span>Selected</span>
-        <span><span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#ccc', marginRight: '5px' }}></span>Available</span>
-        <span><span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#ff6b6b', marginRight: '5px' }}></span>Booked</span>
-        <span><span style={{ display: 'inline-block', width: '12px', height: '12px', background: '#feca57', marginRight: '5px' }}></span>Reserved</span>
-      </div>
-
-      {error && (
-        <div style={{ color: 'red', marginBottom: '10px', padding: '10px', background: '#ffe6e6', borderRadius: '4px' }}>
-          {error}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '8px' }}>Select Seats</h2>
+        <div style={{ display: 'flex', gap: '16px', fontSize: '0.875rem', color: '#6b7280' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{...seatStyle('AVAILABLE', false), width:'20px', height:'20px'}}></div> Available</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{...seatStyle('SELECTED', true), width:'20px', height:'20px'}}></div> Selected</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{...seatStyle('BOOKED', false), width:'20px', height:'20px'}}></div> Booked</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><div style={{...seatStyle('RESERVED', false), width:'20px', height:'20px'}}></div> Reserved</div>
         </div>
-      )}
-
-      {/* Seats Grid */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', 
-        gap: '10px',
-        marginBottom: '20px' 
-      }}>
-        {seats.map((seat) => {
-          const isSelected = selected.some((s) => s._id === seat._id);
-          let color = '#ccc'; // AVAILABLE
-          if (seat.status === 'BOOKED') color = '#ff6b6b';
-          if (seat.status === 'RESERVED') color = '#feca57';
-          if (isSelected) color = '#1dd1a1';
-
-          return (
-            <div
-              key={seat._id}
-              onClick={() => toggle(seat)}
-              style={{
-                padding: '12px',
-                backgroundColor: color,
-                cursor: seat.status === 'AVAILABLE' ? 'pointer' : 'not-allowed',
-                borderRadius: '6px',
-                textAlign: 'center',
-                fontWeight: 'bold',
-                color: '#333',
-                transition: 'transform 0.1s',
-                transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                boxShadow: isSelected ? '0 4px 6px rgba(0,0,0,0.1)' : 'none'
-              }}
-            >
-              {seat.seatNumber}
-            </div>
-          );
-        })}
       </div>
 
-      <button 
-        onClick={handleReserve} 
-        disabled={selected.length === 0 || reserving}
-        style={{
-          padding: '12px 24px',
-          backgroundColor: selected.length > 0 ? '#007bff' : '#ccc',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: selected.length > 0 ? 'pointer' : 'not-allowed',
-          fontSize: '1rem'
-        }}
-      >
-        {reserving ? 'Processing...' : `Reserve Selected Seats (${selected.length})`}
-      </button>
+      {error && <div style={{ padding: '12px', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '8px', textAlign: 'center' }}>{error}</div>}
+
+      {/* Screen Visual */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ width: '80%', height: '12px', backgroundColor: '#e5e7eb', borderRadius: '50%', transform: 'perspective(400px) rotateX(-10deg)', marginBottom: '40px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}></div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '12px', marginBottom: '24px' }}>
+          {seats.map((seat) => {
+            const isSelected = selected.some((s) => s._id === seat._id);
+            return (
+              <div
+                key={seat._id}
+                onClick={() => toggle(seat)}
+                style={seatStyle(seat.status, isSelected)}
+              >
+                {seat.seatNumber}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ position: 'sticky', bottom: '0', backgroundColor: 'white', padding: '16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '12px', boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+        <div>
+          <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>Selected Seats:</span>
+          <span style={{ fontWeight: '700', marginLeft: '8px' }}>{selected.length}</span>
+          <span style={{ color: '#6b7280', fontSize: '0.9rem', marginLeft: '8px' }}>
+            | Total: ${(selected.reduce((acc, curr) => acc + (Number(curr.price) || 0), 0)).toFixed(2)}
+          </span>
+        </div>
+        <button 
+          onClick={handleReserve} 
+          disabled={selected.length === 0 || reserving}
+          style={{
+            padding: '10px 24px',
+            backgroundColor: selected.length > 0 ? '#4f46e5' : '#d1d5db',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontWeight: '600',
+            cursor: selected.length > 0 ? 'pointer' : 'not-allowed'
+          }}
+        >
+          {reserving ? 'Processing...' : 'Proceed to Pay'}
+        </button>
+      </div>
     </div>
   );
 }

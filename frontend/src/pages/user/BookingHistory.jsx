@@ -2,148 +2,147 @@ import { useEffect, useState } from 'react';
 import { getUserBookings } from '../../lib/seat.api';
 import { useNavigate } from 'react-router-dom';
 
+const calculateTotal = (seats) => {
+  if (!Array.isArray(seats) || seats.length === 0) return '0.00';
+  return seats.reduce((sum, seat) => sum + (Number(seat.price) || 0), 0).toFixed(2);
+};
+
+const cardStyle = {
+  backgroundColor: '#ffffff',
+  borderRadius: '12px',
+  padding: '20px',
+  border: '1px solid #e5e7eb',
+  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+  marginBottom: '16px'
+};
+
 export default function BookingHistory() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Helper to format date nicely
-  const formatDate = (dateString) => {
-    if (!dateString) return 'TBD';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  // Helper to get status color
-  const getStatusColor = (status) => {
-    switch (status?.toUpperCase()) {
-      case 'CONFIRMED': return 'green';
-      case 'CANCELLED': return 'red';
-      case 'PENDING': return 'orange';
-      default: return '#666';
-    }
-  };
-
   useEffect(() => {
     const fetchHistory = async () => {
       try {
+        // We rely on the ProtectedRoute in App.js to ensure the user is logged in.
+        // We only need to handle the API response here.
         const res = await getUserBookings();
-        // Assuming the API returns an array of bookings directly
-        setBookings(res.data || []);
+        const data = res.data?.bookings;
+        setBookings(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error(err);
-        setError('Failed to load booking history.');
+        console.error("Booking Fetch Error:", err);
+        
+        // HANDLE: Specific error for unauthorized/expired token from Backend
+        if (err.response && err.response.status === 401) {
+          // Token is valid format but expired or rejected by backend
+          localStorage.removeItem('accessToken'); // Clean up the invalid token
+          localStorage.removeItem('userRole');
+          setError('Session expired. Redirecting to login...');
+          setTimeout(() => navigate('/user/login'), 1500);
+        } else {
+          setError('Failed to load bookings.');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchHistory();
-  }, []);
+  }, [navigate]);
 
-  if (loading) return <p style={{ textAlign: 'center', marginTop: '20px' }}>Loading your bookings...</p>;
+  if (loading) return <div style={{textAlign:'center', marginTop:'50px'}}>Loading...</div>;
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>My Bookings</h2>
-        <button 
-          onClick={() => navigate('/')} 
-          style={{ padding: '8px 16px', cursor: 'pointer' }}
-        >
-          Browse Events
-        </button>
-      </div>
-
-      {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
-
-      {!loading && bookings.length === 0 && !error && (
-        <div style={{ textAlign: 'center', marginTop: '40px', color: '#666' }}>
-          <p>You have no bookings yet.</p>
-          <button 
-            onClick={() => navigate('/')}
-            style={{ marginTop: '10px', color: '#007bff', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
-          >
-            Find an event to book
-          </button>
+    <div>
+      <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '24px' }}>My Bookings</h2>
+      
+      {error && (
+        <div style={{ 
+          padding: '12px', 
+          marginBottom: '20px', 
+          backgroundColor: '#fee2e2', 
+          color: '#991b1b', 
+          borderRadius: '8px',
+          border: '1px solid #fca5a5',
+          textAlign: 'center'
+        }}>
+          {error}
         </div>
       )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        {bookings.map((booking) => (
-          <div 
-            key={booking._id} 
+      
+      {bookings.length === 0 && !error ? (
+        <div style={{textAlign:'center', padding:'40px', color:'#6b7280'}}>
+          <p>No bookings found.</p>
+          <button 
+            onClick={() => navigate('/')} 
             style={{
-              border: '1px solid #ddd',
-              borderRadius: '8px',
-              padding: '16px',
-              backgroundColor: '#fff',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              marginTop:'16px', 
+              color:'#4f46e5', 
+              background:'none', 
+              border:'none', 
+              cursor:'pointer', 
+              textDecoration:'underline',
+              fontWeight: '600'
             }}
           >
-            {/* Header: Event Name & Date */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #eee' }}>
-              <div>
-                <h3 style={{ margin: '0 0 5px 0', fontSize: '1.1rem' }}>
-                  {booking.event?.name || 'Unknown Event'}
-                </h3>
-                <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-                  {formatDate(booking.event?.date || booking.createdAt)}
-                </p>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span 
-                  style={{ 
-                    color: 'white', 
-                    backgroundColor: getStatusColor(booking.status), 
-                    padding: '4px 8px', 
-                    borderRadius: '4px', 
-                    fontSize: '0.8rem', 
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase'
-                  }}
-                >
+            Browse Events
+          </button>
+        </div>
+      ) : (
+        <div>
+          {bookings.map((booking) => (
+            <div key={booking._id || booking.id} style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #f3f4f6' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 4px 0', fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>
+                    {booking.event?.name || booking.event?.title || 'Unknown Event'}
+                  </h3>
+                  <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
+                    {booking.event?.date ? new Date(booking.event.date).toLocaleString() : 'TBD'}
+                  </p>
+                </div>
+                <span style={{ 
+                  padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase',
+                  backgroundColor: booking.status === 'CONFIRMED' ? '#d1fae5' : '#f3f4f6',
+                  color: booking.status === 'CONFIRMED' ? '#065f46' : '#374151'
+                }}>
                   {booking.status || 'CONFIRMED'}
                 </span>
               </div>
-            </div>
-
-            {/* Details: Seats & Price */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ margin: '0 0 4px 0', fontSize: '0.9rem', color: '#555' }}>
-                  <strong>Seats:</strong> {booking.seats?.map(s => s.seatNumber).join(', ') || 'N/A'}
-                </p>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>
-                  <strong>Total:</strong> ${booking.totalPrice || '0.00'}
-                </p>
-              </div>
               
-              {/* Action Button (Placeholder) */}
-              <button 
-                style={{
-                  padding: '8px 12px',
-                  border: '1px solid #007bff',
-                  backgroundColor: 'white',
-                  color: '#007bff',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-                onClick={() => alert(`View ticket for Booking ID: ${booking._id}`)}
-              >
-                View Ticket
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', fontSize: '0.9rem', color: '#4b5563' }}>
+                    <strong>Seats:</strong> {Array.isArray(booking.seats) ? booking.seats.map(s => s.seatNumber).join(', ') : 'N/A'}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#4b5563' }}>
+                    <strong>Total:</strong> ${calculateTotal(booking.seats)}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => alert(`Ticket ID: ${booking._id}`)} 
+                  style={{ 
+                    padding: '8px 16px', 
+                    border: '1px solid #d1d5db', 
+                    background: 'white', 
+                    borderRadius: '6px', 
+                    cursor: 'pointer', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '500', 
+                    color: '#374151',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                  onMouseOut={(e) => e.target.style.backgroundColor = 'white'}
+                >
+                  View Ticket
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

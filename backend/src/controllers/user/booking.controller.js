@@ -1,5 +1,3 @@
-
-
 import Booking from "../../models/booking.model.js";
 import Seat from "../../models/seat.model.js";
 
@@ -37,7 +35,7 @@ export const reserveSeats = async (req, res) => {
     res.json({
       success: true,
       message: "Seats reserved successfully",
-      event: seats[0]?.event, // ✅ event info
+      event: seats[0]?.event,
       seats: updatedSeats,
     });
   } catch (error) {
@@ -51,7 +49,6 @@ export const confirmBooking = async (req, res) => {
     const { seatIds, eventId } = req.body;
     const userId = req.user._id;
 
-    // ✅ Create booking
     const booking = await Booking.create({
       user: userId,
       event: eventId,
@@ -59,7 +56,6 @@ export const confirmBooking = async (req, res) => {
       status: "confirmed",
     });
 
-    // ✅ Mark seats as booked
     await Seat.updateMany(
       { _id: { $in: seatIds } },
       {
@@ -68,7 +64,6 @@ export const confirmBooking = async (req, res) => {
       }
     );
 
-    // ✅ Populate event + seats
     const populatedBooking = await Booking.findById(booking._id)
       .populate("event", "title date location")
       .populate("seats", "seatNumber status");
@@ -83,4 +78,23 @@ export const confirmBooking = async (req, res) => {
   }
 };
 
+// ✅ NEW CONTROLLER FUNCTION
+export const getUserBookings = async (req, res) => {
+  try {
+    const userId = req.user._id;
 
+    // Find all bookings for this user
+    const bookings = await Booking.find({ user: userId })
+      .populate("event", "name title date location") // Populating 'name' for frontend compatibility
+      .populate("seats", "seatNumber status price")  // Populating seat details
+      .sort({ createdAt: -1 }); // Sort newest first
+
+    res.json({
+      success: true,
+      bookings, // Returns an array of bookings
+    });
+  } catch (error) {
+    console.error("Error fetching bookings:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
