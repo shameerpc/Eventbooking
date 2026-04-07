@@ -14,6 +14,7 @@ import EventList from './pages/user/EventList';
 import SeatSelection from './pages/user/SeatSelection';
 import BookingHistory from './pages/user/BookingHistory';
 import WalletDashboard from './pages/user/WalletDashboard'; // FIXED TYPO: Was WalletDahboard
+import BookingConfirm from './pages/user/BookingConfirm';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -63,6 +64,7 @@ function App() {
           <Route path="events/:eventId/seats" element={<SeatSelection />} />
           <Route path="bookings" element={<BookingHistory />} />
           <Route path="wallet" element={<WalletDashboard />} />
+          <Route path="booking/confirm" element={<BookingConfirm />} />
         </Route>
 
         {/* Admin Routes */}
