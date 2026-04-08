@@ -18,14 +18,15 @@ export const payWithWallet = async (req, res) => {
       });
     }
 
-    const amountInPaise = Math.round(totalAmount * 100);
+    // ✅ FIX: Removed * 100 logic. We now use the exact amount passed.
+    const finalAmount = parseFloat(totalAmount);
 
     session.startTransaction();
 
     // ✅ Get user with lock
     const user = await User.findById(userId).session(session);
 
-    if (!user || user.walletBalance < amountInPaise) {
+    if (!user || user.walletBalance < finalAmount) {
       throw new Error("Insufficient balance");
     }
 
@@ -41,8 +42,8 @@ export const payWithWallet = async (req, res) => {
       throw new Error("Seats expired or unavailable");
     }
 
-    // ✅ Deduct wallet
-    user.walletBalance -= amountInPaise;
+    // ✅ Deduct wallet (using exact amount)
+    user.walletBalance -= finalAmount;
     await user.save({ session });
 
     // ✅ Create booking
@@ -52,7 +53,7 @@ export const payWithWallet = async (req, res) => {
           user: userId,
           event: eventId,
           seats: seatIds,
-          totalAmount: amountInPaise,
+          totalAmount: finalAmount, // Store exact amount
           status: "CONFIRMED",
           paymentStatus: "SUCCESS",
         },
@@ -70,13 +71,13 @@ export const payWithWallet = async (req, res) => {
       { session }
     );
 
-    // ✅ Transaction ledger
+    // ✅ Transaction ledger (using exact amount)
     await Transaction.create(
       [
         {
           userId,
           type: "DEBIT",
-          amount: amountInPaise,
+          amount: finalAmount,
           balanceAfter: user.walletBalance,
           description: `Booking ${booking[0]._id}`,
         },
@@ -122,18 +123,19 @@ export const addMoney = async (req, res) => {
       });
     }
 
-    const amountInPaise = Math.round(amount * 100);
+    // ✅ FIX: Convert to float instead of multiplying by 100
+    const finalAmount = parseFloat(amount);
 
     const user = await User.findByIdAndUpdate(
       userId,
-      { $inc: { walletBalance: amountInPaise } },
+      { $inc: { walletBalance: finalAmount } }, // Add exact amount
       { new: true }
     );
 
     await Transaction.create({
       userId,
       type: "CREDIT",
-      amount: amountInPaise,
+      amount: finalAmount,
       balanceAfter: user.walletBalance,
       description: "Wallet top-up",
     });

@@ -22,11 +22,11 @@ const eventSchema = new mongoose.Schema(
       required: true,
     },
 
-    price: {
-      type: Number, // in paise
-      required: true,
-      min: 0,
-    },
+   price: {
+  type: Number, // in paise
+  required: true,
+  min: 0,
+},
 
     totalSeats: {
       type: Number,
